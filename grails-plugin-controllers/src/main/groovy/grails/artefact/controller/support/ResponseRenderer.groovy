@@ -15,16 +15,11 @@
  */
 package grails.artefact.controller.support
 
-import grails.async.Promise
-import grails.config.Settings
-import grails.converters.JSON
 import grails.io.IOUtils
 import grails.plugins.GrailsPlugin
 import grails.plugins.GrailsPluginManager
 import grails.util.GrailsStringUtils
 import grails.util.GrailsWebUtil
-import grails.util.Holders
-import grails.web.JSONBuilder
 import grails.web.api.WebAttributes
 import grails.web.http.HttpHeaders
 import grails.web.mime.MimeType
@@ -35,7 +30,6 @@ import groovy.util.slurpersupport.GPathResult
 import groovy.xml.StreamingMarkupBuilder
 import org.grails.gsp.GroovyPageTemplate
 import org.grails.io.support.SpringIOUtils
-import org.grails.web.converters.Converter
 import org.grails.web.json.JSONElement
 import org.grails.web.servlet.mvc.ActionResultTransformer
 import org.grails.web.servlet.mvc.GrailsWebRequest
@@ -149,16 +143,9 @@ trait ResponseRenderer extends WebAttributes {
     }
 
     private void renderJsonInternal(HttpServletResponse response, Closure callable) {
-        if( Holders.getConfig()?.getProperty(Settings.SETTING_LEGACY_JSON_BUILDER, Boolean.class, false) ) {
-            def builder = new JSONBuilder()
-            JSON json = builder.build(callable)
-            json.render response
-        }
-        else {
-            response.setContentType(GrailsWebUtil.getContentType(MimeType.JSON.getName(), response.getCharacterEncoding() ?: "UTF-8"))
-            def jsonBuilder = new StreamingJsonBuilder(response.writer)
-            jsonBuilder.call callable
-        }
+        response.setContentType(GrailsWebUtil.getContentType(MimeType.JSON.getName(), response.getCharacterEncoding() ?: "UTF-8"))
+        def jsonBuilder = new StreamingJsonBuilder(response.writer)
+        jsonBuilder.call callable
     }
 
     /**
@@ -176,18 +163,6 @@ trait ResponseRenderer extends WebAttributes {
         handleStatusArgument argMap, webRequest, response
         render body
         applySiteMeshLayout webRequest.currentRequest, false, explicitSiteMeshLayout
-    }
-
-    /**
-     * Render the given converter to the response
-     *
-     * @param converter The converter to render
-     */
-    void render(Converter<?> converter) {
-        GrailsWebRequest webRequest = (GrailsWebRequest)RequestContextHolder.currentRequestAttributes()
-        HttpServletResponse response = webRequest.currentResponse
-        webRequest.renderView = false
-        converter.render response
     }
 
     /**
@@ -267,12 +242,10 @@ trait ResponseRenderer extends WebAttributes {
             }
             Object modelObject = argMap[ARGUMENT_MODEL]
             if (modelObject) {
-                boolean isPromise = modelObject instanceof Promise
                 Collection<ActionResultTransformer> resultTransformers = actionResultTransformers
                 for (ActionResultTransformer resultTransformer : resultTransformers) {
                     modelObject = resultTransformer.transformActionResult webRequest,viewUri, modelObject
                 }
-                if (isPromise) return
             }
 
             applyContentType webRequest.currentResponse, argMap, null, false
