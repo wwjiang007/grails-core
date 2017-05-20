@@ -19,7 +19,7 @@ dependencies {
                 project(':grails-plugin-rest'),
                 project(':grails-web'),
                 project(':grails-spring')
-    testCompile "org.grails.plugins:grails-plugin-converters:$legacyConvertersVersion"
+    testCompile "org.grails.plugins:converters:$legacyConvertersVersion"
 
     testCompile "org.grails:grails-datastore-gorm-hibernate4:$datastoreVersion", {
         exclude group: 'org.grails', module:'grails-datastore-gorm'
@@ -52,6 +52,10 @@ dependencies {
     testCompile "javax.servlet:jstl:1.1.2"
 
     testCompile 'org.grails:grails-web-testing-support:1.0.0.BUILD-SNAPSHOT'
+    testRuntime "org.springframework:spring-aspects:${springVersion}"
+    testRuntime "org.aspectj:aspectjrt:$aspectjVersion",
+            "org.aspectj:aspectjweaver:$aspectjVersion"
+
 }
 
 // javaee-web-api has a bad versions of classes we need to compile against

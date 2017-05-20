@@ -35,7 +35,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.DependencyResolveDetails
-import org.gradle.api.artifacts.DependencySubstitutions
+import org.gradle.api.artifacts.DependencySet
 import org.gradle.api.file.FileCollection
 import org.gradle.api.java.archives.Manifest
 import org.gradle.api.plugins.GroovyPlugin
@@ -74,8 +74,10 @@ import javax.inject.Inject
 class GrailsGradlePlugin extends GroovyPlugin {
     public static final String APPLICATION_CONTEXT_COMMAND_CLASS = "grails.dev.commands.ApplicationCommand"
     public static final String PROFILE_CONFIGURATION = "profile"
-    public static final List<String> CORE_GORM_LIBRARIES = ['async','core', 'simple', 'web', 'datastore-rest-client', 'gorm', 'gorm-validation', 'gorm-plugin-support','gorm-support', 'test-support', 'hibernate-core', 'gorm-test', 'rx', 'rx-plugin-support']
-    public static final List<String> CORE_GORM_PLUGINS = ['hibernate4','hibernate5', 'mongodb', 'neo4j', 'rx-mongodb']
+
+    protected static final List<String> CORE_GORM_LIBRARIES = ['async','core', 'simple', 'web', 'rest-client', 'gorm', 'gorm-validation', 'gorm-plugin-support','gorm-support', 'test-support', 'hibernate-core', 'gorm-test', 'rx', 'rx-plugin-support']
+    // NOTE: mongodb, neo4j etc. should NOT be included here so they can be independently versioned
+    protected static final List<String> CORE_GORM_PLUGINS = ['hibernate4','hibernate5']
 
     List<Class<Plugin>> basePluginClasses = [ProvidedBasePlugin, IntegrationTestGradlePlugin]
     List<String> excludedGrailsAppSourceDirs = ['migrations', 'assets']
@@ -162,15 +164,41 @@ class GrailsGradlePlugin extends GroovyPlugin {
 
         applyBomImport(dme, project)
 
+        boolean isGorm61 = false
+        boolean hasGormVersion = project.hasProperty('gormVersion')
+        String gormVersion
+
+        if(hasGormVersion) {
+            gormVersion = project.properties['gormVersion']
+            isGorm61 = GrailsVersionUtils.supportsAtLeastVersion(gormVersion, "6.1.0")
+        }
+
+        if (isGorm61) {
+            project.afterEvaluate {
+                DependencySet dependencies = project.configurations.getByName('testCompile').allDependencies
+                boolean hasPluginTesting = false
+                boolean hasGormTest = false
+                dependencies.each {
+                    if (it.name == "grails-plugin-testing") {
+                        hasPluginTesting = true
+                    }
+                    if (it.name == "grails-datastore-gorm-test") {
+                        hasGormTest = true
+                    }
+                }
+                if (hasPluginTesting && !hasGormTest) {
+                    project.dependencies.add "testCompile", "org.grails:grails-datastore-gorm-test:$gormVersion"
+                }
+            }
+        }
+
         project.configurations.all( { Configuration configuration ->
             for(oldPluginExcludes in ['async', 'events', 'converters', 'gsp']) {
                 configuration.exclude(group:"org.grails", module:"grails-plugin-$oldPluginExcludes".toString())
             }
 
-            if(project.hasProperty('gormVersion')) {
-                String gormVersion = project.properties['gormVersion']
-
-                if(GrailsVersionUtils.isVersionGreaterThan("6.1.0", gormVersion)) {
+            if(hasGormVersion) {
+                if(isGorm61) {
                     configuration.exclude(module:'grails-datastore-simple')
                 }
 
@@ -180,7 +208,7 @@ class GrailsGradlePlugin extends GroovyPlugin {
                     if(group == 'org.grails' &&
                             dependencyName.startsWith('grails-datastore')) {
                         for(suffix in GrailsGradlePlugin.CORE_GORM_LIBRARIES) {
-                            if(dependencyName.endsWith(suffix)) {
+                            if(dependencyName == "grails-datastore-$suffix") {
                                 details.useVersion(gormVersion)
                                 return
                             }
@@ -219,7 +247,7 @@ class GrailsGradlePlugin extends GroovyPlugin {
         def buildPropertiesTask = project.tasks.create("buildProperties")
         def buildPropertiesContents = ['grails.env': Environment.isSystemSet() ? Environment.current.name : Environment.PRODUCTION.name,
                                         'info.app.name': project.name,
-                                        'info.app.version':  project.version,
+                                        'info.app.version':  project.version instanceof Serializable ? project.version : project.version.toString(),
                                         'info.app.grailsVersion': project.properties.get('grailsVersion')]
 
         buildPropertiesTask.inputs.properties(buildPropertiesContents)
