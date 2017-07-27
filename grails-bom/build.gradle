@@ -179,6 +179,19 @@ publishing {
                                 mkp.version( asyncVersion )
                             }
 
+
+                            mkp.dependency {
+                                mkp.groupId 'org.spockframework'
+                                mkp.artifactId "spock-core"
+                                mkp.version( spockVersion )
+                            }
+
+                            mkp.dependency {
+                                mkp.groupId 'org.spockframework'
+                                mkp.artifactId "spock-spring"
+                                mkp.version( spockVersion )
+                            }
+
                             mkp.dependency {
                                 mkp.groupId 'org.grails.plugins'
                                 mkp.artifactId "async"
@@ -201,6 +214,14 @@ publishing {
                                         throw new RuntimeException("Cannot have a snapshot dependency on a profile [$profile.key] for a release!")
                                     }
                                     mkp.version(version)
+                                }
+                            }
+
+                            ['gorm-', 'web-', ''].each { name ->
+                                mkp.dependency {
+                                    mkp.groupId 'org.grails'
+                                    mkp.artifactId "grails-${name}testing-support"
+                                    mkp.version( testingSupportVersion )
                                 }
                             }
                         }

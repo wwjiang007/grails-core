@@ -91,6 +91,9 @@ class GrailsGradlePlugin extends GroovyPlugin {
 
     @CompileStatic
     void apply(Project project) {
+        // reset the environment to ensure it is resolved again for each invocation
+        Environment.reset()
+
         if( project.tasks.findByName('compileGroovy') == null ) {
             super.apply(project)
         }
@@ -193,7 +196,7 @@ class GrailsGradlePlugin extends GroovyPlugin {
         }
 
         project.configurations.all( { Configuration configuration ->
-            for(oldPluginExcludes in ['async', 'events', 'converters', 'gsp']) {
+            for(oldPluginExcludes in ['async', 'events', 'converters', 'gsp', 'testing']) {
                 configuration.exclude(group:"org.grails", module:"grails-plugin-$oldPluginExcludes".toString())
             }
 
